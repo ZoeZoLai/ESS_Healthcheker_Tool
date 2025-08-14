@@ -72,9 +72,24 @@ function Get-ESSWFEDetection {
         $wfeInstances = Find-WFEInstances
         $results.WFEInstances = $wfeInstances
         
-        if ($wfeInstances.Count -gt 0) {
-            Write-Host "[PASS] Found $($wfeInstances.Count) WFE installation(s)" -ForegroundColor Green
-            foreach ($wfe in $wfeInstances) {
+        # Handle PowerShell's behavior where single objects aren't arrays
+        if ($wfeInstances -is [array]) {
+            $wfeInstanceCount = $wfeInstances.Count
+        } else {
+            $wfeInstanceCount = if ($wfeInstances -ne $null) { 1 } else { 0 }
+        }
+        
+        if ($wfeInstanceCount -gt 0) {
+            Write-Host "[PASS] Found $wfeInstanceCount WFE installation(s)" -ForegroundColor Green
+            
+            # Handle single object vs array for iteration
+            if ($wfeInstances -is [array]) {
+                $wfeInstancesToProcess = $wfeInstances
+            } else {
+                $wfeInstancesToProcess = @($wfeInstances)
+            }
+            
+            foreach ($wfe in $wfeInstancesToProcess) {
                 $results.Summary += "[PASS] WFE installed: $($wfe.SiteName) - Pool: $($wfe.ApplicationPool) - DB: $($wfe.DatabaseServer)/$($wfe.DatabaseName)"
             }
         } else {
@@ -84,13 +99,17 @@ function Get-ESSWFEDetection {
 
         # Step 4: Determine deployment type
         Write-Host "Step 4: Determining deployment type..." -ForegroundColor Cyan
-        if ($essInstances.Count -gt 0 -and $wfeInstances.Count -gt 0) {
+        
+        # Get ESS instance count
+        $essInstanceCount = if ($essInstances -is [array]) { $essInstances.Count } else { if ($essInstances -ne $null) { 1 } else { 0 } }
+        
+        if ($essInstanceCount -gt 0 -and $wfeInstanceCount -gt 0) {
             $results.DeploymentType = "Combined"
             Write-Host "[PASS] Deployment Type: Combined (ESS + WFE)" -ForegroundColor Green
-        } elseif ($essInstances.Count -gt 0) {
+        } elseif ($essInstanceCount -gt 0) {
             $results.DeploymentType = "ESS Only"
             Write-Host "[PASS] Deployment Type: ESS Only" -ForegroundColor Green
-        } elseif ($wfeInstances.Count -gt 0) {
+        } elseif ($wfeInstanceCount -gt 0) {
             $results.DeploymentType = "WFE Only"
             Write-Host "[PASS] Deployment Type: WFE Only" -ForegroundColor Green
         } else {

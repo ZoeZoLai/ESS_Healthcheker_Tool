@@ -18,9 +18,9 @@ param(
 
 # Import required modules
 $modulePaths = @(
-    "src\modules\Detection\WFEDetection.ps1",
-    "src\modules\Detection\ESSDetection.ps1",
-    "src\modules\Detection\ESSHealthCheckAPI.ps1"
+    "modules\Detection\WFEDetection.ps1",
+    "modules\Detection\ESSDetection.ps1",
+    "modules\Detection\ESSHealthCheckAPI.ps1"
 )
 
 foreach ($modulePath in $modulePaths) {

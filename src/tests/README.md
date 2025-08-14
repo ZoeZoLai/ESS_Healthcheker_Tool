@@ -5,8 +5,10 @@ This directory contains comprehensive tests and diagnostic tools for the WFE (Wo
 ## Files Overview
 
 ### Test Files
-- **`WFEDetection.Tests.ps1`** - Comprehensive Pester tests for the WFEDetection.ps1 module
-- **`Run-WFEDetectionTests.ps1`** - Test runner script with reporting capabilities
+- **`WFEDetection.Tests.ps1`** - Comprehensive Pester tests for the WFEDetection.ps1 module (Development only)
+- **`Run-WFEDetectionTests.ps1`** - Test runner script with reporting capabilities (Development only)
+- **`Test-WFEDetection.ps1`** - Windows Server compatible test runner (No Pester required)
+- **`Test-APIHealthCheck.ps1`** - API health check test and troubleshooting script
 
 ### Diagnostic Tools
 - **`Diagnose-WFEIssues.ps1`** - Diagnostic script to identify WFE detection and API health check issues
@@ -28,17 +30,26 @@ Import-Module Pester
 
 ## Running Tests
 
-### Basic Test Execution
+### Windows Server Compatible Tests (No Pester Required)
 ```powershell
 # Navigate to the tests directory
 cd "src\tests"
 
-# Run the test runner
-.\Run-WFEDetectionTests.ps1
+# Run WFE detection tests (Windows Server compatible)
+.\Test-WFEDetection.ps1
+
+# Run API health check tests
+.\Test-APIHealthCheck.ps1
+
+# Run with verbose output
+.\Test-WFEDetection.ps1 -Verbose
 ```
 
-### Advanced Test Options
+### Development Environment Tests (Pester Required)
 ```powershell
+# Run the test runner
+.\Run-WFEDetectionTests.ps1
+
 # Run with verbose output
 .\Run-WFEDetectionTests.ps1 -Verbose
 
@@ -47,12 +58,9 @@ cd "src\tests"
 
 # Specify custom output path
 .\Run-WFEDetectionTests.ps1 -OutputPath "CustomTestResults"
-```
 
-### Direct Pester Execution
-```powershell
 # Run tests directly with Pester
-Invoke-Pester -Path "WFEDetection.Tests.ps1" -Output Detailed
+Invoke-Pester -Path "WFEDetection.Tests.ps1"
 
 # Run with code coverage
 Invoke-Pester -Path "WFEDetection.Tests.ps1" -CodeCoverage "..\modules\Detection\WFEDetection.ps1"

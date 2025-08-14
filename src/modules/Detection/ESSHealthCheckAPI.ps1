@@ -110,7 +110,7 @@ function Get-ESSHealthCheckViaAPI {
             $webRequestParams = @{
                 Uri = $fullUri
                 Method = "GET"
-                TimeoutSec = 5  # Reduced timeout for better performance
+                TimeoutSec = 30  # Increased timeout for better reliability
                 Headers = @{
                     "Accept" = "application/json, application/xml, text/xml"
                     "User-Agent" = "PowerShell-ESSHealthCheck/1.0"

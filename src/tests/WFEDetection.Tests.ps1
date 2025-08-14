@@ -10,6 +10,7 @@
     - Find-WFEInstances function  
     - Get-TenantsConfigInfo function
     - Edge cases and error handling
+    - Real-world scenarios based on actual deployments
 .NOTES
     Author: Zoe Lai
     Date: 15/08/2025
@@ -22,375 +23,360 @@ $modulePath = Join-Path $PSScriptRoot "..\modules\Detection\WFEDetection.ps1"
 
 Describe "WFEDetection Module" {
     BeforeAll {
-        # Create test data and mock objects
+        # Create test data based on actual findings
         $testTenantsConfig = @"
 <?xml version="1.0" encoding="utf-8"?>
 <tenants>
-    <tenant id="TEST001">
-        <workflowDatabaseConnection>data source=SERVER2019\SQL2019;initial catalog=WorkflowDB;integrated security=true</workflowDatabaseConnection>
-        <clientUrl>http://localhost/WorkflowEngine</clientUrl>
-        <from-email-address>workflow@testcompany.com</from-email-address>
+    <tenant id="ba81e050-ec65-11df-98cf-0800200c9a66">
+        <workflowDatabaseConnection>Data Source=SERVER2019\SQL2019;Initial Catalog=PG_NZ;Integrated Security=True</workflowDatabaseConnection>
+        <workflowDatabaseName>PG_NZ</workflowDatabaseName>
+        <workflowDatabaseServer>SERVER2019\SQL2019</workflowDatabaseServer>
+        <workflowEnginePath>/WFE_PGNZ</workflowEnginePath>
+        <workflowEnginePhysicalPath>C:\inetpub\wwwroot\WorkflowEngine</workflowEnginePhysicalPath>
     </tenant>
 </tenants>
 "@
 
-        $testTenantsConfigPath = Join-Path $TestDrive "tenants.config"
-        $testTenantsConfig | Out-File -FilePath $testTenantsConfigPath -Encoding UTF8
-
-        # Mock IIS site data
-        $mockIISSite = @{
+        # Mock IIS site data based on actual findings
+        $mockIISSite = [PSCustomObject]@{
             Name = "Default Web Site"
             PhysicalPath = "C:\inetpub\wwwroot"
             ApplicationPool = "DefaultAppPool"
+            State = "Started"
         }
 
-        $mockIISApplication = @{
-            Path = "/WorkflowEngine"
+        # Mock WFE application data
+        $mockWFEApp = [PSCustomObject]@{
+            Path = "/WFE_PGNZ"
             PhysicalPath = "C:\inetpub\wwwroot\WorkflowEngine"
-            ApplicationPool = "WorkflowAppPool"
+            ApplicationPool = "DefaultAppPool"
         }
     }
 
-    Describe "Test-WFEInstallation" {
-        Context "When IIS is not installed" {
-            BeforeAll {
-                Mock Get-WindowsFeature { return $null }
-                Mock Get-ItemProperty { return $null }
-                Mock Get-Service { return $null }
-            }
-
-            It "Should return WFE not installed when IIS is not available" {
-                $result = Test-WFEInstallation
-                
-                $result.Installed | Should -Be $false
-                $result.InstallPath | Should -Be $null
-                $result.SiteName | Should -Be $null
-            }
-        }
-
-        Context "When IIS is installed but no WFE found" {
-            BeforeAll {
-                Mock Get-WindowsFeature { 
-                    return @{ InstallState = "Installed" }
-                }
-                Mock Get-IISSite { return @($mockIISSite) }
+    Context "Test-WFEInstallation Function" {
+        BeforeEach {
+            # Reset mocks for each test
+            Mock Get-IISSite { return @($mockIISSite) }
+            # Only mock Get-IISApplication if the command exists
+            if (Get-Command "Get-IISApplication" -ErrorAction SilentlyContinue) {
+                Mock Get-IISApplication { return @($mockWFEApp) }
+            } else {
                 Mock Get-IISApplication { return @() }
-                Mock Test-Path { return $false }
             }
-
-            It "Should return WFE not installed when no tenants.config found" {
-                $result = Test-WFEInstallation
-                
-                $result.Installed | Should -Be $false
-                $result.InstallPath | Should -Be $null
-            }
+            Mock Test-Path { return $true }
+            Mock Get-Content { return $testTenantsConfig }
         }
 
-        Context "When WFE is installed" {
-            BeforeAll {
-                Mock Get-WindowsFeature { 
-                    return @{ InstallState = "Installed" }
-                }
-                Mock Get-IISSite { return @($mockIISSite) }
-                Mock Get-IISApplication { return @($mockIISApplication) }
-                Mock Test-Path { 
-                    param($Path)
-                    if ($Path -like "*tenants.config") { return $true }
-                    return $false
-                }
-            }
+        It "Should detect WFE installation when properly configured" {
+            $result = Test-WFEInstallation
 
-            It "Should detect WFE installation when tenants.config exists" {
-                $result = Test-WFEInstallation
-                
-                $result.Installed | Should -Be $true
-                $result.InstallPath | Should -Be "C:\inetpub\wwwroot\WorkflowEngine"
-                $result.SiteName | Should -Be "Default Web Site"
-                $result.ApplicationPath | Should -Be "/WorkflowEngine"
-            }
+            $result.Installed | Should -Be $true
+            $result.InstallPath | Should -Be "C:\inetpub\wwwroot\WorkflowEngine"
+            $result.SiteName | Should -Be "Default Web Site"
+            $result.ApplicationPath | Should -Be "/WFE_PGNZ"
+            $result.DatabaseServer | Should -Be "SERVER2019\SQL2019"
+            $result.DatabaseName | Should -Be "PG_NZ"
+            $result.TenantId | Should -Be "ba81e050-ec65-11df-98cf-0800200c9a66"
         }
 
-        Context "Error handling" {
-            BeforeAll {
-                Mock Get-WindowsFeature { throw "Access denied" }
-                Mock Get-ItemProperty { throw "Registry access failed" }
-                Mock Get-Service { throw "Service access failed" }
-            }
+        It "Should return false when IIS is not available" {
+            Mock Get-IISSite { throw "IIS not available" }
 
-            It "Should handle errors gracefully and return WFE not installed" {
-                $result = Test-WFEInstallation
-                
-                $result.Installed | Should -Be $false
-                $result.InstallPath | Should -Be $null
-            }
-        }
-    }
+            $result = Test-WFEInstallation
 
-    Describe "Find-WFEInstances" {
-        Context "When no WFE instances found" {
-            BeforeAll {
-                Mock Get-IISSite { return @() }
-            }
-
-            It "Should return empty array when no IIS sites exist" {
-                $result = Find-WFEInstances
-                
-                $result | Should -Be @()
-            }
+            $result.Installed | Should -Be $false
+            $result.Error | Should -Not -BeNullOrEmpty
         }
 
-        Context "When WFE instances found" {
-            BeforeAll {
-                Mock Get-IISSite { return @($mockIISSite) }
-                Mock Get-IISApplication { return @($mockIISApplication) }
-                Mock Test-Path { 
-                    param($Path)
-                    if ($Path -like "*tenants.config") { return $true }
-                    return $false
-                }
-            }
+        It "Should return false when no WFE applications found" {
+            Mock Get-IISApplication { return @() }
 
-            It "Should return array of WFE instances" {
-                $result = Find-WFEInstances
-                
-                $result.Count | Should -Be 1
-                $result[0].SiteName | Should -Be "Default Web Site"
-                $result[0].PhysicalPath | Should -Be "C:\inetpub\wwwroot\WorkflowEngine"
-                $result[0].ApplicationPath | Should -Be "/WorkflowEngine"
-            }
+            $result = Test-WFEInstallation
+
+            $result.Installed | Should -Be $false
+            $result.Error | Should -Contain "No WFE applications found"
         }
 
-        Context "When IIS modules are not available" {
-            BeforeAll {
-                Mock Import-Module { throw "Module not found" }
-            }
+        It "Should handle missing tenants.config file" {
+            Mock Test-Path { return $false }
 
-            It "Should handle missing IIS modules gracefully" {
-                $result = Find-WFEInstances
-                
-                $result | Should -Be @()
-            }
-        }
-    }
+            $result = Test-WFEInstallation
 
-    Describe "Get-TenantsConfigInfo" {
-        Context "When tenants.config file exists" {
-            It "Should parse tenants.config correctly" {
-                $result = Get-TenantsConfigInfo -ConfigPath $testTenantsConfigPath
-                
-                $result.DatabaseServer | Should -Be "SERVER2019\SQL2019"
-                $result.DatabaseName | Should -Be "WorkflowDB"
-                $result.ClientUrl | Should -Be "http://localhost/WorkflowEngine"
-                $result.TenantId | Should -Be "TEST001"
-                $result.FromEmailAddress | Should -Be "workflow@testcompany.com"
-            }
+            $result.Installed | Should -Be $false
+            $result.Error | Should -Contain "tenants.config not found"
         }
 
-        Context "When tenants.config file does not exist" {
-            It "Should return empty hashtable when file not found" {
-                $result = Get-TenantsConfigInfo -ConfigPath "C:\nonexistent\tenants.config"
-                
-                $result.Count | Should -Be 0
-            }
+        It "Should handle malformed tenants.config XML" {
+            Mock Get-Content { return "Invalid XML content" }
+
+            $result = Test-WFEInstallation
+
+            $result.Installed | Should -Be $false
+            $result.Error | Should -Contain "Error parsing tenants.config"
         }
 
-        Context "When tenants.config has missing elements" {
-            BeforeAll {
-                $incompleteConfig = @"
-<?xml version="1.0" encoding="utf-8"?>
-<tenants>
-    <tenant id="TEST002">
-        <workflowDatabaseConnection>data source=SERVER2019\SQL2019;initial catalog=WorkflowDB</workflowDatabaseConnection>
-    </tenant>
-</tenants>
-"@
-                $incompleteConfigPath = Join-Path $TestDrive "incomplete-tenants.config"
-                $incompleteConfig | Out-File -FilePath $incompleteConfigPath -Encoding UTF8
-            }
-
-            It "Should handle missing optional elements gracefully" {
-                $result = Get-TenantsConfigInfo -ConfigPath $incompleteConfigPath
-                
-                $result.DatabaseServer | Should -Be "SERVER2019\SQL2019"
-                $result.DatabaseName | Should -Be "WorkflowDB"
-                $result.ClientUrl | Should -Be $null
-                $result.TenantId | Should -Be "TEST002"
-                $result.FromEmailAddress | Should -Be $null
-            }
-        }
-
-        Context "When tenants.config has malformed connection string" {
-            BeforeAll {
-                $malformedConfig = @"
-<?xml version="1.0" encoding="utf-8"?>
-<tenants>
-    <tenant id="TEST003">
-        <workflowDatabaseConnection>invalid connection string</workflowDatabaseConnection>
-    </tenant>
-</tenants>
-"@
-                $malformedConfigPath = Join-Path $TestDrive "malformed-tenants.config"
-                $malformedConfig | Out-File -FilePath $malformedConfigPath -Encoding UTF8
-            }
-
-            It "Should handle malformed connection string gracefully" {
-                $result = Get-TenantsConfigInfo -ConfigPath $malformedConfigPath
-                
-                $result.DatabaseServer | Should -Be $null
-                $result.DatabaseName | Should -Be $null
-                $result.TenantId | Should -Be "TEST003"
-            }
-        }
-    }
-
-    Describe "Integration Tests" {
-        Context "End-to-end WFE detection" {
-            BeforeAll {
-                # Mock successful IIS and WFE detection
-                Mock Get-WindowsFeature { 
-                    return @{ InstallState = "Installed" }
-                }
-                Mock Get-IISSite { return @($mockIISSite) }
-                Mock Get-IISApplication { return @($mockIISApplication) }
-                Mock Test-Path { 
-                    param($Path)
-                    if ($Path -like "*tenants.config") { return $true }
-                    return $false
-                }
-            }
-
-            It "Should perform complete WFE detection workflow" {
-                # Test individual function
-                $wfeInstallation = Test-WFEInstallation
-                $wfeInstallation.Installed | Should -Be $true
-
-                # Test instance discovery
-                $wfeInstances = Find-WFEInstances
-                $wfeInstances.Count | Should -Be 1
-
-                # Test config parsing
-                $configInfo = Get-TenantsConfigInfo -ConfigPath $testTenantsConfigPath
-                $configInfo.DatabaseServer | Should -Not -BeNullOrEmpty
-            }
-        }
-    }
-
-    Describe "Edge Cases" {
-        Context "Multiple WFE installations" {
-            BeforeAll {
-                $mockSite1 = @{
-                    Name = "Default Web Site"
-                    PhysicalPath = "C:\inetpub\wwwroot"
+        It "Should handle multiple WFE applications" {
+            $mockMultipleApps = @(
+                [PSCustomObject]@{
+                    Path = "/WFE_PGNZ"
+                    PhysicalPath = "C:\inetpub\wwwroot\WorkflowEngine"
                     ApplicationPool = "DefaultAppPool"
+                },
+                [PSCustomObject]@{
+                    Path = "/WFE_DEV"
+                    PhysicalPath = "C:\inetpub\wwwroot\WorkflowEngine_Dev"
+                    ApplicationPool = "DevAppPool"
                 }
-                $mockSite2 = @{
-                    Name = "Workflow Site"
-                    PhysicalPath = "C:\workflow"
-                    ApplicationPool = "WorkflowPool"
-                }
-                $mockApp1 = @{
-                    Path = "/WorkflowEngine1"
-                    PhysicalPath = "C:\inetpub\wwwroot\WorkflowEngine1"
-                    ApplicationPool = "WorkflowAppPool1"
-                }
-                $mockApp2 = @{
-                    Path = "/WorkflowEngine2"
-                    PhysicalPath = "C:\workflow\WorkflowEngine2"
-                    ApplicationPool = "WorkflowAppPool2"
-                }
+            )
+            Mock Get-IISApplication { return $mockMultipleApps }
 
-                Mock Get-WindowsFeature { 
-                    return @{ InstallState = "Installed" }
-                }
-                Mock Get-IISSite { return @($mockSite1, $mockSite2) }
-                Mock Get-IISApplication { 
-                    param($Site)
-                    if ($Site.Name -eq "Default Web Site") {
-                        return @($mockApp1)
-                    } else {
-                        return @($mockApp2)
-                    }
-                }
-                Mock Test-Path { 
-                    param($Path)
-                    if ($Path -like "*tenants.config") { return $true }
-                    return $false
-                }
-            }
+            $result = Test-WFEInstallation
 
-            It "Should detect multiple WFE installations" {
-                $result = Find-WFEInstances
-                
-                $result.Count | Should -Be 2
-                $result[0].SiteName | Should -Be "Default Web Site"
-                $result[1].SiteName | Should -Be "Workflow Site"
-            }
-        }
-
-        Context "WFE in site root vs application" {
-            BeforeAll {
-                $mockSite = @{
-                    Name = "WFE Site"
-                    PhysicalPath = "C:\wfe-root"
-                    ApplicationPool = "WFEAppPool"
-                }
-                $mockApp = @{
-                    Path = "/WFEApp"
-                    PhysicalPath = "C:\wfe-app"
-                    ApplicationPool = "WFEAppPool"
-                }
-
-                Mock Get-WindowsFeature { 
-                    return @{ InstallState = "Installed" }
-                }
-                Mock Get-IISSite { return @($mockSite) }
-                Mock Get-IISApplication { return @($mockApp) }
-                Mock Test-Path { 
-                    param($Path)
-                    # Only return true for app path, not root
-                    if ($Path -like "*wfe-app*tenants.config") { return $true }
-                    return $false
-                }
-            }
-
-            It "Should detect WFE in application path, not site root" {
-                $result = Find-WFEInstances
-                
-                $result.Count | Should -Be 1
-                $result[0].PhysicalPath | Should -Be "C:\wfe-app"
-                $result[0].ApplicationPath | Should -Be "/WFEApp"
-                $result[0].IsRootApplication | Should -Be $false
-            }
+            $result.Installed | Should -Be $true
+            $result.ApplicationPath | Should -Be "/WFE_PGNZ"  # Should return first found
         }
     }
 
-    Describe "Performance Tests" {
-        Context "Large number of IIS sites" {
-            BeforeAll {
-                $largeSiteList = 1..100 | ForEach-Object {
-                    @{
-                        Name = "Site$_"
-                        PhysicalPath = "C:\sites\site$_"
-                        ApplicationPool = "AppPool$_"
-                    }
-                }
-
-                Mock Get-WindowsFeature { 
-                    return @{ InstallState = "Installed" }
-                }
-                Mock Get-IISSite { return $largeSiteList }
+    Context "Find-WFEInstances Function" {
+        BeforeEach {
+            Mock Get-IISSite { return @($mockIISSite) }
+            # Only mock Get-IISApplication if the command exists
+            if (Get-Command "Get-IISApplication" -ErrorAction SilentlyContinue) {
+                Mock Get-IISApplication { return @($mockWFEApp) }
+            } else {
                 Mock Get-IISApplication { return @() }
-                Mock Test-Path { return $false }
+            }
+            Mock Test-Path { return $true }
+            Mock Get-Content { return $testTenantsConfig }
+        }
+
+        It "Should find WFE instances when properly configured" {
+            $instances = Find-WFEInstances
+
+            $instances.Count | Should -Be 1
+            $instances[0].SiteName | Should -Be "Default Web Site"
+            $instances[0].ApplicationPath | Should -Be "/WFE_PGNZ"
+            $instances[0].PhysicalPath | Should -Be "C:\inetpub\wwwroot\WorkflowEngine"
+            $instances[0].DatabaseServer | Should -Be "SERVER2019\SQL2019"
+            $instances[0].DatabaseName | Should -Be "PG_NZ"
+            $instances[0].TenantID | Should -Be "ba81e050-ec65-11df-98cf-0800200c9a66"
+        }
+
+        It "Should return empty array when no WFE instances found" {
+            Mock Get-IISApplication { return @() }
+
+            $instances = Find-WFEInstances
+
+            $instances.Count | Should -Be 0
+        }
+
+        It "Should handle IIS access errors gracefully" {
+            Mock Get-IISSite { throw "Access denied" }
+
+            $instances = Find-WFEInstances
+
+            $instances.Count | Should -Be 0
+        }
+
+        It "Should handle multiple WFE instances" {
+            $mockMultipleApps = @(
+                [PSCustomObject]@{
+                    Path = "/WFE_PGNZ"
+                    PhysicalPath = "C:\inetpub\wwwroot\WorkflowEngine"
+                    ApplicationPool = "DefaultAppPool"
+                },
+                [PSCustomObject]@{
+                    Path = "/WFE_DEV"
+                    PhysicalPath = "C:\inetpub\wwwroot\WorkflowEngine_Dev"
+                    ApplicationPool = "DevAppPool"
+                }
+            )
+            Mock Get-IISApplication { return $mockMultipleApps }
+
+            $instances = Find-WFEInstances
+
+            $instances.Count | Should -Be 2
+            $instances[0].ApplicationPath | Should -Be "/WFE_PGNZ"
+            $instances[1].ApplicationPath | Should -Be "/WFE_DEV"
+        }
+    }
+
+    Context "Get-TenantsConfigInfo Function" {
+        BeforeEach {
+            Mock Test-Path { return $true }
+        }
+
+        It "Should parse valid tenants.config XML" {
+            Mock Get-Content { return $testTenantsConfig }
+            
+            # Create a temporary config file for testing
+            $tempConfigPath = Join-Path $TestDrive "tenants.config"
+            $testTenantsConfig | Out-File -FilePath $tempConfigPath -Encoding UTF8
+
+            $result = Get-TenantsConfigInfo -ConfigPath $tempConfigPath
+
+            $result.Count | Should -Be 1
+            $result[0].TenantId | Should -Be "ba81e050-ec65-11df-98cf-0800200c9a66"
+            $result[0].DatabaseServer | Should -Be "SERVER2019\SQL2019"
+            $result[0].DatabaseName | Should -Be "PG_NZ"
+            $result[0].WorkflowEnginePath | Should -Be "/WFE_PGNZ"
+            $result[0].WorkflowEnginePhysicalPath | Should -Be "C:\inetpub\wwwroot\WorkflowEngine"
+        }
+
+        It "Should handle missing tenants.config file" {
+            Mock Test-Path { return $false }
+
+            $result = Get-TenantsConfigInfo -ConfigPath "C:\nonexistent\tenants.config"
+
+            $result.Count | Should -Be 0
+        }
+
+        It "Should handle malformed XML gracefully" {
+            Mock Get-Content { return "Invalid XML content" }
+            
+            # Create a temporary config file with invalid XML
+            $tempConfigPath = Join-Path $TestDrive "invalid-tenants.config"
+            "Invalid XML content" | Out-File -FilePath $tempConfigPath -Encoding UTF8
+
+            $result = Get-TenantsConfigInfo -ConfigPath $tempConfigPath
+
+            $result.Count | Should -Be 0
+        }
+
+        It "Should handle multiple tenants" {
+            $multiTenantConfig = @"
+<?xml version="1.0" encoding="utf-8"?>
+<tenants>
+    <tenant id="tenant1">
+        <workflowDatabaseConnection>Data Source=server1;Initial Catalog=db1;Integrated Security=True</workflowDatabaseConnection>
+        <workflowDatabaseName>db1</workflowDatabaseName>
+        <workflowDatabaseServer>server1</workflowDatabaseServer>
+        <workflowEnginePath>/WFE1</workflowEnginePath>
+        <workflowEnginePhysicalPath>C:\path1</workflowEnginePhysicalPath>
+    </tenant>
+    <tenant id="tenant2">
+        <workflowDatabaseConnection>Data Source=server2;Initial Catalog=db2;Integrated Security=True</workflowDatabaseConnection>
+        <workflowDatabaseName>db2</workflowDatabaseName>
+        <workflowDatabaseServer>server2</workflowDatabaseServer>
+        <workflowEnginePath>/WFE2</workflowEnginePath>
+        <workflowEnginePhysicalPath>C:\path2</workflowEnginePhysicalPath>
+    </tenant>
+</tenants>
+"@
+            Mock Get-Content { return $multiTenantConfig }
+            
+            # Create a temporary config file for testing
+            $tempConfigPath = Join-Path $TestDrive "multi-tenant.config"
+            $multiTenantConfig | Out-File -FilePath $tempConfigPath -Encoding UTF8
+
+            $result = Get-TenantsConfigInfo -ConfigPath $tempConfigPath
+
+            $result.Count | Should -Be 2
+            $result[0].TenantId | Should -Be "tenant1"
+            $result[1].TenantId | Should -Be "tenant2"
+        }
+    }
+
+    Context "Integration Tests" {
+        BeforeEach {
+            Mock Get-IISSite { return @($mockIISSite) }
+            # Only mock Get-IISApplication if the command exists
+            if (Get-Command "Get-IISApplication" -ErrorAction SilentlyContinue) {
+                Mock Get-IISApplication { return @($mockWFEApp) }
+            } else {
+                Mock Get-IISApplication { return @() }
+            }
+            Mock Test-Path { return $true }
+            Mock Get-Content { return $testTenantsConfig }
+        }
+
+        It "Should provide consistent results between Test-WFEInstallation and Find-WFEInstances" {
+            $testResult = Test-WFEInstallation
+            $instances = Find-WFEInstances
+
+            $testResult.Installed | Should -Be ($instances.Count -gt 0)
+            
+            if ($testResult.Installed) {
+                $testResult.InstallPath | Should -Be $instances[0].PhysicalPath
+                $testResult.SiteName | Should -Be $instances[0].SiteName
+                $testResult.ApplicationPath | Should -Be $instances[0].ApplicationPath
+                $testResult.DatabaseServer | Should -Be $instances[0].DatabaseServer
+                $testResult.DatabaseName | Should -Be $instances[0].DatabaseName
+                $testResult.TenantId | Should -Be $instances[0].TenantID
+            }
+        }
+
+        It "Should handle real-world deployment scenario" {
+            # Simulate the actual deployment found in diagnostic
+            $result = Test-WFEInstallation
+
+            $result.Installed | Should -Be $true
+            $result.InstallPath | Should -Be "C:\inetpub\wwwroot\WorkflowEngine"
+            $result.SiteName | Should -Be "Default Web Site"
+            $result.ApplicationPath | Should -Be "/WFE_PGNZ"
+            $result.DatabaseServer | Should -Be "SERVER2019\SQL2019"
+            $result.DatabaseName | Should -Be "PG_NZ"
+            $result.TenantId | Should -Be "ba81e050-ec65-11df-98cf-0800200c9a66"
+        }
+    }
+
+    Context "Error Handling and Edge Cases" {
+        It "Should handle null or empty IIS site data" {
+            Mock Get-IISSite { return $null }
+
+            $result = Test-WFEInstallation
+
+            $result.Installed | Should -Be $false
+            $result.Error | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should handle missing physical path in IIS application" {
+            Mock Get-IISApplication { 
+                return @([PSCustomObject]@{
+                    Path = "/WFE_PGNZ"
+                    PhysicalPath = $null
+                    ApplicationPool = "DefaultAppPool"
+                })
             }
 
-            It "Should handle large number of sites efficiently" {
-                $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-                $result = Find-WFEInstances
-                $stopwatch.Stop()
+            $result = Test-WFEInstallation
 
-                $stopwatch.ElapsedMilliseconds | Should -BeLessThan 5000  # Should complete within 5 seconds
-                $result.Count | Should -Be 0  # No WFE found in this test
-            }
+            $result.Installed | Should -Be $false
+            $result.Error | Should -Contain "Physical path not found"
+        }
+
+        It "Should handle database connection string parsing errors" {
+            $invalidConfig = @"
+<?xml version="1.0" encoding="utf-8"?>
+<tenants>
+    <tenant id="test">
+        <workflowDatabaseConnection>Invalid Connection String</workflowDatabaseConnection>
+        <workflowDatabaseName></workflowDatabaseName>
+        <workflowDatabaseServer></workflowDatabaseServer>
+        <workflowEnginePath>/WFE</workflowEnginePath>
+        <workflowEnginePhysicalPath>C:\path</workflowEnginePhysicalPath>
+    </tenant>
+</tenants>
+"@
+            Mock Get-Content { return $invalidConfig }
+
+            $result = Test-WFEInstallation
+
+            $result.Installed | Should -Be $false
+            $result.Error | Should -Contain "Error parsing database connection"
+        }
+    }
+
+    Context "Performance Tests" {
+        It "Should complete detection within reasonable time" {
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            
+            $result = Test-WFEInstallation
+            
+            $stopwatch.Stop()
+            $executionTime = $stopwatch.ElapsedMilliseconds
+
+            $executionTime | Should -BeLessThan 5000  # Should complete within 5 seconds
         }
     }
 }
