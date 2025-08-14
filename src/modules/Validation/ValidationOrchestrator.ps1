@@ -110,10 +110,17 @@ function Test-ESSAPIHealthCheckValidation {
         try {
             $healthChecks = Get-ESSHealthCheckForAllInstances -UseGlobalDetection $true
             
-            if ($healthChecks.Count -gt 0) {
+            # Handle PowerShell's behavior where single objects aren't arrays
+            if ($healthChecks -is [array]) {
+                $healthCheckCount = $healthChecks.Count
+            } else {
+                $healthCheckCount = if ($healthChecks -ne $null) { 1 } else { 0 }
+            }
+            
+            if ($healthCheckCount -gt 0) {
                 # Add API health check results to global results
                 Add-APIHealthCheckResults -HealthChecks $healthChecks
-                Write-Verbose "Successfully added $($healthChecks.Count) ESS API health check results"
+                Write-Verbose "Successfully added $healthCheckCount ESS API health check results"
             } else {
                 Add-HealthCheckResult -Category "ESS API Health Check" -Check "API Health Check" -Status "WARNING" -Message "No health check results returned from API"
             }
