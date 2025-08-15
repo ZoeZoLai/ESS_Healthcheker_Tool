@@ -5,8 +5,8 @@
     Configuration that uses system information to determine appropriate settings for the ESS Health Checker based on current system.
 .NOTES
     Author: Zoe Lai
-    Date: 29/07/2025
-    Version: 1.0
+    Date: 13/08/2025
+    Version: 1.3
 #>
 
 # SystemInfo module is now loaded via ModuleLoader.ps1
@@ -37,22 +37,13 @@ function Initialize-ESSHealthCheckerConfiguration {
         # Get system information
         $sysInfo = $global:SystemInfo
         
-        # Check if we're in interactive mode (no legacy detection modules loaded)
-        $isInteractiveMode = $false
-        try {
-            # Try to call the legacy detection function
-            $detectionResults = Get-ESSWFEDetection
-        }
-        catch {
-            # If it fails, we're in interactive mode
-            $isInteractiveMode = $true
-            $detectionResults = $null
-        }
+        # Get ESS/WFE detection results
+        $detectionResults = Get-ESSWFEDetection
         
         # Store detection results globally for other modules to use
         $global:DetectionResults = $detectionResults
 
-        # Build ESS configuration - simplified to only include system-level settings
+        # Build ESS configuration - only includes system-level settings
         $global:ESSConfig = @{
             # System information for reference
             SystemInfo = $sysInfo
@@ -120,7 +111,7 @@ function Get-MinimumDiskSpace {
     #>
     param()
 
-    return 50  # MYOB PayGlobal ESS recommended minimum disk space (GB)
+    return 50  # MYOB PayGlobal suggested minimum disk space to alert (GB) for PG Server ESS alert 10 GB
 }
 
 function Get-MinimumMemory {

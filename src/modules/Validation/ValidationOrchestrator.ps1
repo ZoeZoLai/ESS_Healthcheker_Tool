@@ -114,7 +114,7 @@ function Test-ESSAPIHealthCheckValidation {
             if ($healthChecks -is [array]) {
                 $healthCheckCount = $healthChecks.Count
             } else {
-                $healthCheckCount = if ($healthChecks -ne $null) { 1 } else { 0 }
+                $healthCheckCount = if ($null -ne $healthChecks) { 1 } else { 0 }
             }
             
             if ($healthCheckCount -gt 0) {
