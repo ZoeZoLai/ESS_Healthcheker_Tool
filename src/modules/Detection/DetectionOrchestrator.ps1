@@ -76,7 +76,7 @@ function Get-ESSWFEDetection {
         if ($wfeInstances -is [array]) {
             $wfeInstanceCount = $wfeInstances.Count
         } else {
-            $wfeInstanceCount = if ($wfeInstances -ne $null) { 1 } else { 0 }
+            $wfeInstanceCount = if ($null -ne $wfeInstances) { 1 } else { 0 }
         }
         
         if ($wfeInstanceCount -gt 0) {
@@ -101,7 +101,7 @@ function Get-ESSWFEDetection {
         Write-Host "Step 4: Determining deployment type..." -ForegroundColor Cyan
         
         # Get ESS instance count
-        $essInstanceCount = if ($essInstances -is [array]) { $essInstances.Count } else { if ($essInstances -ne $null) { 1 } else { 0 } }
+        $essInstanceCount = if ($essInstances -is [array]) { $essInstances.Count } else { if ($null -ne $essInstances) { 1 } else { 0 } }
         
         if ($essInstanceCount -gt 0 -and $wfeInstanceCount -gt 0) {
             $results.DeploymentType = "Combined"
