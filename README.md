@@ -27,7 +27,7 @@ The ESS Health Checker is designed to validate system requirements and configura
 - **Network Connectivity**: Internet and network adapter validation
 - **Security Permissions**: Administrator rights and file system access
 
-### Interactive Mode Benefits
+### Enhanced Interactive Mode (v2.0)
 
 The new interactive mode provides significant improvements over the legacy automatic detection:
 
@@ -38,6 +38,9 @@ The new interactive mode provides significant improvements over the legacy autom
 - **Better Reliability**: Eliminates detection failures that can occur with automatic mode
 - **Clear Progress**: Step-by-step process with confirmation prompts
 - **Flexible Deployment**: Support for Combined, ESS Only, and WFE Only deployments
+- **IIS Validation**: Early detection if IIS is not installed, guiding users to check other servers
+- **Instance Selection**: User-driven selection of specific ESS/WFE instances to validate
+- **API Endpoint Testing**: Direct testing of ESS API endpoints using user-provided URLs
 
 ## 🏗️ Architecture
 
@@ -289,11 +292,74 @@ The interactive mode provides the best user experience with step-by-step guidanc
 
 #### Interactive Mode Features
 
-1. **Instance Discovery**: Automatically scans for ESS and WFE installations
-2. **User Selection**: Prompts you to select specific instances to check
-3. **URL Configuration**: For ESS instances, prompts for site URLs for API health checks
-4. **Focused Validation**: Performs health checks only on selected instances
-5. **Step-by-Step Process**: Clear progress indicators and confirmation steps
+1. **IIS Validation**: Early check if IIS is installed, guides users to other servers if not
+2. **Instance Discovery**: Automatically scans for ESS and WFE installations
+3. **User Selection**: Prompts you to select specific instances to check
+4. **URL Configuration**: For ESS instances, prompts for site URLs for API health checks
+5. **Focused Validation**: Performs health checks only on selected instances
+6. **Step-by-Step Process**: Clear progress indicators and confirmation steps
+
+#### Interactive Mode Workflow
+
+1. **System Check**: Validates IIS installation and system requirements
+2. **Approach Selection**: Choose between automated or manual health checks
+3. **Instance Selection**: Select specific ESS/WFE instances to validate
+4. **URL Input**: Provide ESS site URLs for API endpoint testing
+5. **Targeted Validation**: Run health checks only on selected instances
+6. **Report Generation**: Generate focused report with selected instances
+
+#### Example Interactive Session
+
+```
+ESS Interactive Pre-Upgrade Health Checker
+=============================================
+Enhanced version with user-guided health checks
+
+=== System Information Summary ===
+Computer Name: SERVER01
+OS Version: Windows Server 2019
+Total Memory: 16 GB
+Available Disk Space: 500 GB
+CPU Cores: 8
+IIS Version: 10.0
+
+✅ IIS is installed on this machine.
+   ESS/WFE installations may be present.
+
+Please choose your health check approach:
+1. Auto - Dynamic detection and validation of all ESS/WFE instances
+2. Manual - Select specific instances and provide custom URLs
+3. Exit - Cancel health check
+
+Enter your choice (1-3): 2
+
+=== Instance Selection ===
+Available IIS Applications:
+1. Site: Default Web Site
+   Application: /
+   Pool: DefaultAppPool
+   Physical Path: C:\inetpub\wwwroot
+
+2. Site: Default Web Site
+   Application: /ESS
+   Pool: ESSAppPool
+   Physical Path: C:\inetpub\wwwroot\ESS
+
+Select instances to check (comma-separated numbers, e.g., 1,3): 2
+
+=== Instance Details: Default Web Site/ESS ===
+Type: ESS
+Alias: Default_ESS_ESS
+
+For ESS instances, please provide the ESS site URL for API health checks.
+Example: https://ess.company.com or http://localhost/ESS
+
+Enter ESS site URL (or press Enter to skip): https://ess.company.com
+
+✅ Selected 1 instance(s) for health check.
+
+Starting targeted health checks for selected instances...
+```
 
 ### Legacy Automatic Mode
 

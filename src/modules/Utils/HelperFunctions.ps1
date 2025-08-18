@@ -93,4 +93,50 @@ function Test-SystemInfoAvailability {
     }
 
     return $true
+}
+
+function Get-InstanceAlias {
+    <#
+    .SYNOPSIS
+        Gets the IIS application alias from the application path
+    .DESCRIPTION
+        Extracts the IIS application alias from the application path
+    .PARAMETER SiteName
+        IIS site name
+    .PARAMETER ApplicationPath
+        Application path
+    .PARAMETER Type
+        Instance type (ESS or WFE) - not used, kept for compatibility
+    .RETURNS
+        IIS application alias
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SiteName,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$ApplicationPath,
+        
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("ESS", "WFE")]
+        [string]$Type
+    )
+
+    try {
+        # Extract the last part of the application path (the actual IIS application alias)
+        $appPathParts = $ApplicationPath -split "/" | Where-Object { $_ -ne "" }
+        $instanceName = $appPathParts[-1]  # Get the last part
+        
+        # If no meaningful instance name, use a default
+        if (-not $instanceName -or $instanceName -eq "Self-Service") {
+            $instanceName = "Default"
+        }
+        
+        # Simply return the IIS application alias
+        return $instanceName
+    }
+    catch {
+        return "Unknown"
+    }
 } 
