@@ -19,11 +19,11 @@ function Get-ESSHealthCheckViaAPI {
     .PARAMETER Port
         The port number to use
     .PARAMETER TimeoutSeconds
-        Timeout in seconds for API requests (default: 60 seconds)
+        Timeout in seconds for API requests (default: 30 seconds)
     .EXAMPLE
         Get-ESSHealthCheckViaAPI -SiteName "Default Web Site" -ApplicationPath "/Self-Service/NZ_ESS"
     .EXAMPLE
-        Get-ESSHealthCheckViaAPI -SiteName "Default Web Site" -ApplicationPath "/ESS" -TimeoutSeconds 120
+        Get-ESSHealthCheckViaAPI -SiteName "Default Web Site" -ApplicationPath "Self-Service/NZ_ESS" -TimeoutSeconds 60
     .RETURNS
         PSCustomObject containing health check results
     #>
@@ -43,7 +43,7 @@ function Get-ESSHealthCheckViaAPI {
         [int]$Port,
         
         [Parameter(Mandatory = $false)]
-        [int]$TimeoutSeconds = 60
+        [int]$TimeoutSeconds = 30
     )
     
     try {
@@ -482,7 +482,7 @@ function Test-ESSHealthCheckEndpoint {
         [int]$Port,
         
         [Parameter(Mandatory = $false)]
-        [int]$TimeoutSeconds = 60
+        [int]$TimeoutSeconds = 30
     )
     
     try {
@@ -659,7 +659,7 @@ function Get-ESSHealthCheckForAllInstances {
         [bool]$UseGlobalDetection = $true,
         
         [Parameter(Mandatory = $false)]
-        [int]$TimeoutSeconds = 60
+        [int]$TimeoutSeconds = 30
     )
     
     try {
