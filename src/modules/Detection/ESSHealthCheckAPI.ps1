@@ -18,8 +18,12 @@ function Get-ESSHealthCheckViaAPI {
         The protocol to use (http or https, defaults to http for localhost)
     .PARAMETER Port
         The port number to use
+    .PARAMETER TimeoutSeconds
+        Timeout in seconds for API requests (default: 60 seconds)
     .EXAMPLE
         Get-ESSHealthCheckViaAPI -SiteName "Default Web Site" -ApplicationPath "/Self-Service/NZ_ESS"
+    .EXAMPLE
+        Get-ESSHealthCheckViaAPI -SiteName "Default Web Site" -ApplicationPath "/ESS" -TimeoutSeconds 120
     .RETURNS
         PSCustomObject containing health check results
     #>
@@ -36,7 +40,10 @@ function Get-ESSHealthCheckViaAPI {
         [string]$Protocol = "http",
         
         [Parameter(Mandatory = $false)]
-        [int]$Port
+        [int]$Port,
+        
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutSeconds = 60
     )
     
     try {
@@ -110,7 +117,7 @@ function Get-ESSHealthCheckViaAPI {
             $webRequestParams = @{
                 Uri = $fullUri
                 Method = "GET"
-                TimeoutSec = 30  # Increased timeout for better reliability
+                TimeoutSec = $TimeoutSeconds  # Use configurable timeout parameter
                 Headers = @{
                     "Accept" = "application/json, application/xml, text/xml"
                     "User-Agent" = "PowerShell-ESSHealthCheck/1.0"
@@ -472,7 +479,10 @@ function Test-ESSHealthCheckEndpoint {
         [string]$Protocol = "http",
         
         [Parameter(Mandatory = $false)]
-        [int]$Port
+        [int]$Port,
+        
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutSeconds = 60
     )
     
     try {
@@ -513,7 +523,7 @@ function Test-ESSHealthCheckEndpoint {
         try {
             $request = [System.Net.WebRequest]::Create($fullUri)
             $request.Method = "GET"
-            $request.Timeout = 3000  # Reduced timeout for better performance
+            $request.Timeout = ($TimeoutSeconds * 1000)  # Convert seconds to milliseconds for WebRequest
             $request.Accept = "application/json, application/xml, text/xml"
             
             $response = $request.GetResponse()
@@ -545,7 +555,7 @@ function Test-ESSHealthCheckEndpoint {
         Write-Host "Test 2: Testing health check API functionality..." -ForegroundColor Cyan
         
         try {
-            $healthCheckResult = Get-ESSHealthCheckViaAPI -SiteName $SiteName -ApplicationPath $ApplicationPath -Protocol $Protocol -Port $Port
+            $healthCheckResult = Get-ESSHealthCheckViaAPI -SiteName $SiteName -ApplicationPath $ApplicationPath -Protocol $Protocol -Port $Port -TimeoutSeconds $TimeoutSeconds
             
             if ($null -ne $healthCheckResult.Success) {
                 $testResults.HealthCheckWorking = $true
@@ -646,7 +656,10 @@ function Get-ESSHealthCheckForAllInstances {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false)]
-        [bool]$UseGlobalDetection = $true
+        [bool]$UseGlobalDetection = $true,
+        
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutSeconds = 60
     )
     
     try {
@@ -675,7 +688,7 @@ function Get-ESSHealthCheckForAllInstances {
             Write-Host "Checking health for ESS instance: $($ess.SiteName)$($ess.ApplicationPath)" -ForegroundColor Gray
             
             try {
-                $healthCheck = Get-ESSHealthCheckViaAPI -SiteName $ess.SiteName -ApplicationPath $ess.ApplicationPath
+                $healthCheck = Get-ESSHealthCheckViaAPI -SiteName $ess.SiteName -ApplicationPath $ess.ApplicationPath -TimeoutSeconds $TimeoutSeconds
                 
                 # Add ESS instance information to the health check result
                 $healthCheck.ESSInstance = @{
