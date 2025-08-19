@@ -76,10 +76,23 @@ function Initialize-ESSHealthCheckerConfiguration {
             # Report settings
             ReportOutputPath = Get-ReportOutputPath -SystemInfo $sysInfo
             ReportNameFormat = "ESS_PreUpgrade_HealthCheck_{0:yyyyMMdd_HHmmss}.html"
-            
-            # API Health Check settings
-            APIHealthCheckTimeoutSeconds = 30  # Default timeout for ESS API health checks
-            APIHealthCheckRetryAttempts = 2    # Number of retry attempts for failed API calls
+
+            # API Health Check Settings
+            APIHealthCheck = @{
+                DefaultTimeoutSeconds = 90
+                MaxRetries = 2
+                RetryDelaySeconds = 5
+                ConnectionTimeoutSeconds = 30
+                ReadWriteTimeoutSeconds = 60
+            }
+
+            # Performance and Reliability Settings
+            Performance = @{
+                EnableRetryLogic = $true
+                EnableConnectionPooling = $true
+                MaxConcurrentRequests = 3
+                RequestDelaySeconds = 1
+            }
         }
 
         Write-Verbose "ESS Health Checker configuration initialized successfully."
@@ -115,7 +128,7 @@ function Get-MinimumDiskSpace {
     #>
     param()
 
-    return 50  # MYOB PayGlobal suggested minimum disk space to alert (GB) for PG Server ESS alert 10 GB
+    return 10  # MYOB PayGlobal suggested minimum disk space to alert (GB) for PG Server ESS alert 10 GB
 }
 
 function Get-MinimumMemory {

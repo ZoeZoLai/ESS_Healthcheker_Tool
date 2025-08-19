@@ -108,7 +108,14 @@ function Test-ESSAPIHealthCheckValidation {
         
         # Get health check for all instances and add results
         try {
-            $healthChecks = Get-ESSHealthCheckForAllInstances -UseGlobalDetection $true
+            # Get timeout settings from configuration
+            $timeoutSeconds = if ($global:ESSConfig.APIHealthCheck.DefaultTimeoutSeconds) { $global:ESSConfig.APIHealthCheck.DefaultTimeoutSeconds } else { 90 }
+            $maxRetries = if ($global:ESSConfig.APIHealthCheck.MaxRetries) { $global:ESSConfig.APIHealthCheck.MaxRetries } else { 2 }
+            $retryDelay = if ($global:ESSConfig.APIHealthCheck.RetryDelaySeconds) { $global:ESSConfig.APIHealthCheck.RetryDelaySeconds } else { 5 }
+            
+            Write-Verbose "Using API health check settings: Timeout=$timeoutSeconds seconds, MaxRetries=$maxRetries, RetryDelay=$retryDelay seconds"
+            
+            $healthChecks = Get-ESSHealthCheckForAllInstances -UseGlobalDetection $true -TimeoutSeconds $timeoutSeconds -MaxRetries $maxRetries -RetryDelaySeconds $retryDelay
             
             # Handle PowerShell's behavior where single objects aren't arrays
             if ($healthChecks -is [array]) {

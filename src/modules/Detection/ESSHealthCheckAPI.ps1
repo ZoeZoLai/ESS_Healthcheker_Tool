@@ -19,11 +19,15 @@ function Get-ESSHealthCheckViaAPI {
     .PARAMETER Port
         The port number to use
     .PARAMETER TimeoutSeconds
-        Timeout in seconds for API requests (default: 30 seconds)
+        Timeout in seconds for API requests (default: 60 seconds - increased from 30)
+    .PARAMETER MaxRetries
+        Maximum number of retry attempts for failed requests (default: 2)
+    .PARAMETER RetryDelaySeconds
+        Delay between retry attempts in seconds (default: 5)
     .EXAMPLE
         Get-ESSHealthCheckViaAPI -SiteName "Default Web Site" -ApplicationPath "/Self-Service/NZ_ESS"
     .EXAMPLE
-        Get-ESSHealthCheckViaAPI -SiteName "Default Web Site" -ApplicationPath "Self-Service/NZ_ESS" -TimeoutSeconds 60
+        Get-ESSHealthCheckViaAPI -SiteName "Default Web Site" -ApplicationPath "Self-Service/NZ_ESS" -TimeoutSeconds 120 -MaxRetries 3
     .RETURNS
         PSCustomObject containing health check results
     #>
@@ -43,11 +47,17 @@ function Get-ESSHealthCheckViaAPI {
         [int]$Port,
         
         [Parameter(Mandatory = $false)]
-        [int]$TimeoutSeconds = 30
+        [int]$TimeoutSeconds = 60,  # Increased default timeout from 30 to 60 seconds
+        
+        [Parameter(Mandatory = $false)]
+        [int]$MaxRetries = 2,  # Add retry capability
+        
+        [Parameter(Mandatory = $false)]
+        [int]$RetryDelaySeconds = 5  # Add retry delay
     )
     
     try {
-        Write-Verbose "Getting ESS health check via API for $SiteName$ApplicationPath"
+        Write-Verbose "Getting ESS health check via API for $SiteName$ApplicationPath (Timeout: ${TimeoutSeconds}s, MaxRetries: $MaxRetries)"
         
         # Build URI for localhost
         $uriBuilder = @{
@@ -91,6 +101,7 @@ function Get-ESSHealthCheckViaAPI {
             HTTPStatusInterpretation = $null
             ComponentMessages = @()
             ESSInstance = $null  # Initialize ESSInstance property
+            RetryAttempts = 0  # Track retry attempts
         }
         
         # Add debugging information
@@ -105,49 +116,91 @@ function Get-ESSHealthCheckViaAPI {
         $statusCode = $null
         $contentType = $null
         
-        # Use Invoke-WebRequest (simplified approach)
-        try {
-            Write-Verbose "Making request with Invoke-WebRequest..."
+        # Retry logic for HTTP requests
+        $attempt = 0
+        $lastException = $null
+        
+        do {
+            $attempt++
+            $healthCheckResult.RetryAttempts = $attempt - 1
             
-            # Validate URI before making request
-            if ([string]::IsNullOrEmpty($fullUri)) {
-                throw "URI is null or empty"
+            if ($attempt -gt 1) {
+                Write-Verbose "Retry attempt $attempt of $MaxRetries (after $RetryDelaySeconds second delay)"
+                Start-Sleep -Seconds $RetryDelaySeconds
             }
             
-            $webRequestParams = @{
-                Uri = $fullUri
-                Method = "GET"
-                TimeoutSec = $TimeoutSeconds  # Use configurable timeout parameter
-                Headers = @{
-                    "Accept" = "application/json, application/xml, text/xml"
-                    "User-Agent" = "PowerShell-ESSHealthCheck/1.0"
+            # Use Invoke-WebRequest with retry logic
+            try {
+                Write-Verbose "Making request with Invoke-WebRequest (attempt $attempt)..."
+                
+                # Validate URI before making request
+                if ([string]::IsNullOrEmpty($fullUri)) {
+                    throw "URI is null or empty"
+                }
+                
+                $webRequestParams = @{
+                    Uri = $fullUri
+                    Method = "GET"
+                    TimeoutSec = $TimeoutSeconds  # Use configurable timeout parameter
+                    Headers = @{
+                        "Accept" = "application/json, application/xml, text/xml"
+                        "User-Agent" = "PowerShell-ESSHealthCheck/1.0"
+                    }
+                }
+                
+                # Disable SSL certificate validation for localhost
+                if ($Protocol -eq "https") {
+                    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+                }
+                
+                Write-Verbose "Making request to: $fullUri (attempt $attempt)"
+                $response = Invoke-WebRequest @webRequestParams -ErrorAction Stop
+                
+                if ($null -eq $response) {
+                    throw "Response is null"
+                }
+                
+                $responseContent = $response.Content
+                $statusCode = $response.StatusCode
+                $contentType = $response.Headers["Content-Type"]
+                
+                Write-Verbose "Invoke-WebRequest successful - Status: $statusCode, Content Length: $($responseContent.Length)"
+                
+                # If we get here, the request was successful, so break out of retry loop
+                break
+            }
+            catch {
+                $lastException = $_
+                Write-Verbose "Request attempt $attempt failed: $($_.Exception.Message)"
+                
+                # Check if this is a retryable error
+                $isRetryable = $false
+                if ($_.Exception.Message -like "*timeout*" -or 
+                    $_.Exception.Message -like "*connection*" -or
+                    $_.Exception.Message -like "*network*" -or
+                    $_.Exception.Message -like "*temporarily*" -or
+                    $_.Exception.Message -like "*service unavailable*") {
+                    $isRetryable = $true
+                }
+                
+                # Don't retry on 404 errors (endpoint doesn't exist)
+                if ($_.Exception.Message -like "*404*" -or $_.Exception.Message -like "*Not Found*") {
+                    $isRetryable = $false
+                }
+                
+                if ($attempt -lt $MaxRetries -and $isRetryable) {
+                    Write-Verbose "Retryable error detected, will retry..."
+                    continue
+                } else {
+                    Write-Verbose "Non-retryable error or max retries reached, failing"
+                    break
                 }
             }
-            
-            # Disable SSL certificate validation for localhost
-            if ($Protocol -eq "https") {
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-            }
-            
-            Write-Verbose "Making request to: $fullUri"
-            $response = Invoke-WebRequest @webRequestParams -ErrorAction Stop
-            
-            if ($null -eq $response) {
-                throw "Response is null"
-            }
-            
-            $responseContent = $response.Content
-            $statusCode = $response.StatusCode
-            $contentType = $response.Headers["Content-Type"]
-            
-            Write-Verbose "Invoke-WebRequest successful - Status: $statusCode, Content Length: $($responseContent.Length)"
-        }
-        catch {
-            # Set error values when request fails
-            $responseContent = $null
-            $statusCode = "Error"
-            $contentType = $null
-            throw "HTTP request failed: $($_.Exception.Message)"
+        } while ($attempt -le $MaxRetries)
+        
+        # If all attempts failed, throw the last exception
+        if ($null -eq $responseContent) {
+            throw "HTTP request failed after $attempt attempts: $($lastException.Exception.Message)"
         }
         
         # Update health check result with response data
@@ -648,8 +701,16 @@ function Get-ESSHealthCheckForAllInstances {
         Returns comprehensive health information for all components.
     .PARAMETER UseGlobalDetection
         Whether to use global detection results (default: true)
+    .PARAMETER TimeoutSeconds
+        Timeout in seconds for API requests (default: 90 seconds - increased for better reliability)
+    .PARAMETER MaxRetries
+        Maximum number of retry attempts for failed requests (default: 2)
+    .PARAMETER RetryDelaySeconds
+        Delay between retry attempts in seconds (default: 5)
     .EXAMPLE
         Get-ESSHealthCheckForAllInstances
+    .EXAMPLE
+        Get-ESSHealthCheckForAllInstances -TimeoutSeconds 120 -MaxRetries 3
     .RETURNS
         Array of health check results for all ESS instances
     #>
@@ -659,7 +720,13 @@ function Get-ESSHealthCheckForAllInstances {
         [bool]$UseGlobalDetection = $true,
         
         [Parameter(Mandatory = $false)]
-        [int]$TimeoutSeconds = 30
+        [int]$TimeoutSeconds = 90,  # Increased default timeout from 30 to 90 seconds
+        
+        [Parameter(Mandatory = $false)]
+        [int]$MaxRetries = 2,  # Add retry capability
+        
+        [Parameter(Mandatory = $false)]
+        [int]$RetryDelaySeconds = 5  # Add retry delay
     )
     
     try {
@@ -688,7 +755,7 @@ function Get-ESSHealthCheckForAllInstances {
             Write-Host "Checking health for ESS instance: $($ess.SiteName)$($ess.ApplicationPath)" -ForegroundColor Gray
             
             try {
-                $healthCheck = Get-ESSHealthCheckViaAPI -SiteName $ess.SiteName -ApplicationPath $ess.ApplicationPath -TimeoutSeconds $TimeoutSeconds
+                $healthCheck = Get-ESSHealthCheckViaAPI -SiteName $ess.SiteName -ApplicationPath $ess.ApplicationPath -TimeoutSeconds $TimeoutSeconds -MaxRetries $MaxRetries -RetryDelaySeconds $RetryDelaySeconds
                 
                 # Add ESS instance information to the health check result
                 $healthCheck.ESSInstance = @{
@@ -709,7 +776,14 @@ function Get-ESSHealthCheckForAllInstances {
                 Write-Host " Components: $($healthCheck.Summary.TotalComponents) total, $($healthCheck.Summary.HealthyComponents) healthy" -ForegroundColor Gray
             }
             catch {
-                Write-Warning "Error checking health for ESS instance $($ess.SiteName)$($ess.ApplicationPath): $_"
+                $errorMessage = $_.Exception.Message
+                if ($errorMessage -like "*timeout*") {
+                    Write-Warning "Error checking health for ESS instance $($ess.SiteName)$($ess.ApplicationPath): Request timed out after $TimeoutSeconds seconds with $MaxRetries retry attempts. This may indicate the ESS application is under heavy load or experiencing issues."
+                } elseif ($errorMessage -like "*404*" -or $errorMessage -like "*Not Found*") {
+                    Write-Warning "Error checking health for ESS instance $($ess.SiteName)$($ess.ApplicationPath): Endpoint not found (404). This may indicate the ESS application is not properly configured or the API endpoint is not available."
+                } else {
+                    Write-Warning "Error checking health for ESS instance $($ess.SiteName)$($ess.ApplicationPath): $errorMessage"
+                }
                 
                 # Add error result
                 $errorHealthCheck = @{

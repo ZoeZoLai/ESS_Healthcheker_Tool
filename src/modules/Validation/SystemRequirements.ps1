@@ -26,12 +26,13 @@ function Test-SystemRequirements {
     $cDrive = $sysInfo.Hardware.LogicalDisks | Where-Object { $_.DeviceID -eq 'C:' } | Select-Object -First 1
     if ($cDrive) {
         $diskSpaceGB = $cDrive.Size
+        $freeSpaceGB = $cDrive.FreeSpace
         $requiredDiskSpace = $config.MinimumDiskSpaceGB
         
-        if ($diskSpaceGB -lt $requiredDiskSpace) {
-            Add-HealthCheckResult -Category "System Requirements" -Check "Disk Space" -Status "FAIL" -Message "Insufficient disk space. Available: $diskSpaceGB GB - Required: $requiredDiskSpace GB"
+        if ($freeSpaceGB -lt $requiredDiskSpace) {
+            Add-HealthCheckResult -Category "System Requirements" -Check "Disk Space" -Status "FAIL" -Message "Insufficient disk space. Available: $freeSpaceGB (Total: $diskSpaceGB) GB - Required: $requiredDiskSpace GB"
         } else {
-            Add-HealthCheckResult -Category "System Requirements" -Check "Disk Space" -Status "PASS" -Message "Sufficient disk space available. Available: $diskSpaceGB GB - meets requirement of $requiredDiskSpace GB"
+            Add-HealthCheckResult -Category "System Requirements" -Check "Disk Space" -Status "PASS" -Message "Sufficient disk space available. Available: $freeSpaceGB (Total: $diskSpaceGB) GB - meets requirement of $requiredDiskSpace GB"
         }
     } else {
         Add-HealthCheckResult -Category "System Requirements" -Check "Disk Space" -Status "WARNING" -Message "Could not determine disk space"
