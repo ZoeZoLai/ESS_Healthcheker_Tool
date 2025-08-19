@@ -191,3 +191,4 @@ The test script will:
 - Test batch health checks for all instances
 - Provide detailed timing and error information
 - Offer specific recommendations for issues
+
