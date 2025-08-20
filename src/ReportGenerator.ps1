@@ -118,7 +118,7 @@ function New-ReportHTML {
             overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, #EBDCFD 0%, #C497FE 30%, #7B14EF 100%);
+            background: linear-gradient(135deg, #C497FE 0%, #7B14EF 100%);
             color: white;
             padding: 30px;
             text-align: center;
@@ -279,7 +279,7 @@ function New-ReportHTML {
             margin-bottom: 30px;
         }
         .stat-card {
-            background: linear-gradient(135deg, #EBDCFD 0%, #c497fe 30%, #7b14ef 100%);
+            background: linear-gradient(135deg, #c497fe 0%, #7b14ef 100%);
             color: white;
             padding: 20px;
             border-radius: 8px;
@@ -473,7 +473,7 @@ function New-ReportHTML {
                                 @"
                             <div class="info-item">
                                 <span class="info-label">SQL Server:</span>
-                                <span class="info-value">$($sysInfo.SQLServer.Instances.Count) instances - $($sysInfo.SQLServer.Versions -join ', ')</span>
+                                <span class="info-value">$($sysInfo.SQLServer.Instances.Count) instance$(if($sysInfo.SQLServer.Instances.Count -ne 1){'s'}) - $($sysInfo.SQLServer.Versions -join ', ')</span>
                             </div>
 "@
                             })
