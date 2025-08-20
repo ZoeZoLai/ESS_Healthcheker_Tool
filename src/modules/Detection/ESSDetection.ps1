@@ -769,7 +769,7 @@ function Test-ESSVersionCompatibility {
                         if ($essMajor -eq 5 -and $essMinor -eq 5 -and $essBuild -eq 1 -and $essRevision -eq 2) {
                             $requiredVersion = "4.66.0.0"
                             if ($payglobalMajor -gt 4 -or ($payglobalMajor -eq 4 -and $payglobalMinor -gt 66) -or
-                                ($payglobalMajor -eq 4 -and $payglobalMinor -eq 66 -and $payglobalBuild -ge 0)) {
+                                ($payglobalMajor -eq 4 -and $payglobalMinor -eq 66 -and $payglobalBuild -ge 0 -and $payglobalRevision -ge 0)) {
                                 $compatible = $true
                             }
                         }
@@ -777,7 +777,7 @@ function Test-ESSVersionCompatibility {
                         elseif ($essMajor -eq 5 -and $essMinor -eq 6 -and $essBuild -eq 0 -and $essRevision -eq 0) {
                             $requiredVersion = "4.72.0.0"
                             if ($payglobalMajor -gt 4 -or ($payglobalMajor -eq 4 -and $payglobalMinor -gt 72) -or
-                                ($payglobalMajor -eq 4 -and $payglobalMinor -eq 72 -and $payglobalBuild -ge 0)) {
+                                ($payglobalMajor -eq 4 -and $payglobalMinor -eq 72 -and $payglobalBuild -ge 0 -and $payglobalRevision -ge 0)) {
                                 $compatible = $true
                             }
                         }
