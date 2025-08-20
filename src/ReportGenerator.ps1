@@ -79,7 +79,7 @@ function New-ReportHTML {
     )
 
     $sysInfo = $global:SystemInfo
-    $config = $global:ESSConfig
+    # $config = $global:ESSConfig
     
     # Get detection results for displaying all instances
     $detectionResults = $global:DetectionResults
@@ -118,7 +118,7 @@ function New-ReportHTML {
             overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #EBDCFD 0%, #C497FE 30%, #7B14EF 100%);
             color: white;
             padding: 30px;
             text-align: center;
@@ -161,7 +161,7 @@ function New-ReportHTML {
             background-color: #f8f9fa;
             padding: 15px;
             border-radius: 6px;
-            border-left: 4px solid #007bff;
+            border-left: 4px solid #7B14EF;
         }
         .info-card h4 {
             margin: 0 0 10px 0;
@@ -279,7 +279,7 @@ function New-ReportHTML {
             margin-bottom: 30px;
         }
         .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #EBDCFD 0%, #c497fe 30%, #7b14ef 100%);
             color: white;
             padding: 20px;
             border-radius: 8px;
@@ -436,7 +436,7 @@ function New-ReportHTML {
                     
                     <div class="info-grid">
                         <div class="info-card">
-                            <h4>System Resources</h4>
+                            <h4>System Information</h4>
                             <div class="info-item">
                                 <span class="info-label">Memory:</span>
                                 <span class="info-value">$($sysInfo.Hardware.TotalPhysicalMemory) GB</span>
@@ -469,6 +469,14 @@ function New-ReportHTML {
                                 <span class="info-label">Application Pools:</span>
                                 <span class="info-value">$($sysInfo.IIS.ApplicationPools.Count) pools</span>
                             </div>
+                            $(if ($sysInfo.SQLServer.IsInstalled) {
+                                @"
+                            <div class="info-item">
+                                <span class="info-label">SQL Server:</span>
+                                <span class="info-value">$($sysInfo.SQLServer.Instances.Count) instances - $($sysInfo.SQLServer.Versions -join ', ')</span>
+                            </div>
+"@
+                            })
                         </div>
                     </div>
                 </div>

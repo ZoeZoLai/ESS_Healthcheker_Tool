@@ -51,6 +51,11 @@ function Add-HealthCheckResult {
     
     $global:HealthCheckResults += [PSCustomObject]$result
     
+    # Debug: Log when FAIL results are added
+    if ($Status -eq "FAIL") {
+        Write-Verbose "Added FAIL result: $Category - $Check (Total results now: $($global:HealthCheckResults.Count))"
+    }
+    
     # Display result with appropriate color
     $color = switch ($Status) {
         "PASS" { "Green" }
@@ -106,7 +111,14 @@ function Get-HealthCheckSummary {
     
     $totalChecks = $global:HealthCheckResults.Count
     $passChecks = ($global:HealthCheckResults | Where-Object { $_.Status -eq "PASS" }).Count
-    $failChecks = ($global:HealthCheckResults | Where-Object { $_.Status -eq "FAIL" }).Count
+    
+    # Count FAIL results manually to avoid Where-Object issues
+    $failChecks = 0
+    foreach ($result in $global:HealthCheckResults) {
+        if ($result.Status -eq "FAIL") {
+            $failChecks++
+        }
+    }
     # Count warnings manually instead of using Where-Object
     $warningChecks = 0
     foreach ($result in $global:HealthCheckResults) {
@@ -115,6 +127,14 @@ function Get-HealthCheckSummary {
         }
     }
     $infoChecks = ($global:HealthCheckResults | Where-Object { $_.Status -eq "INFO" }).Count
+    
+    # Debug: Log the actual status values found
+    Write-Verbose "Summary calculation - Total: $totalChecks, Pass: $passChecks, Fail: $failChecks, Warning: $warningChecks, Info: $infoChecks"
+    Write-Verbose "All status values found: $($global:HealthCheckResults.Status | Sort-Object -Unique)"
+    
+    # Debug: Check FAIL filter specifically
+    $failResults = $global:HealthCheckResults | Where-Object { $_.Status -eq "FAIL" }
+    Write-Verbose "FAIL filter results count: $($failResults.Count)"
     
 
     

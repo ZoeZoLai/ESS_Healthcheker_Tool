@@ -926,5 +926,7 @@ function Add-APIHealthCheckResults {
     }
     catch {
         Write-Warning "Error adding API health check results: $_"
+        Write-Verbose "Exception details: $($_.Exception.Message)"
+        Write-Verbose "Stack trace: $($_.ScriptStackTrace)"
     }
 } 

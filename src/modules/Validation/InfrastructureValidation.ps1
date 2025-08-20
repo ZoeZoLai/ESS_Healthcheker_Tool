@@ -52,36 +52,38 @@ function Test-DatabaseConnectivity {
     
     
 
-    # Test ESS database connectivity
+    # Test ESS database connectivity for all instances
     if ($global:DetectionResults -and $global:DetectionResults.ESSInstances.Count -gt 0) {
-        $essInstance = $global:DetectionResults.ESSInstances[0]
-        if ($essInstance.DatabaseServer) {
-            try {
-                $connectionString = "Server=$($essInstance.DatabaseServer);Database=$($essInstance.DatabaseName);Integrated Security=true;Connection Timeout=30"
-                $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
-                $connection.Open()
-                $connection.Close()
-                Add-HealthCheckResult -Category "Database Connectivity" -Check "ESS PG Database Connection" -Status "PASS" -Message "Successfully connected to ESS/PG database: $($essInstance.DatabaseServer)"
-            }
-            catch {
-                Add-HealthCheckResult -Category "Database Connectivity" -Check "ESS PG Database Connection" -Status "FAIL" -Message "Failed to connect to ESS/PG database: $($essInstance.DatabaseServer). Error: $($_.Exception.Message)"
+        foreach ($essInstance in $global:DetectionResults.ESSInstances) {
+            if ($essInstance.DatabaseServer) {
+                try {
+                    $connectionString = "Server=$($essInstance.DatabaseServer);Database=$($essInstance.DatabaseName);Integrated Security=true;Connection Timeout=30"
+                    $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
+                    $connection.Open()
+                    $connection.Close()
+                    Add-HealthCheckResult -Category "Database Connectivity" -Check "ESS - PG Database Connection" -Status "PASS" -Message "Successfully connected to PG database: $($essInstance.DatabaseServer) - $($essInstance.DatabaseName)"
+                }
+                catch {
+                    Add-HealthCheckResult -Category "Database Connectivity" -Check "ESS - PG Database Connection" -Status "FAIL" -Message "Failed to connect to PG database: $($essInstance.DatabaseServer) - $($essInstance.DatabaseName). Error: $($_.Exception.Message)"
+                }
             }
         }
     }
     
-    # Test WFE database connectivity
+    # Test WFE database connectivity for all instances
     if ($global:DetectionResults -and $global:DetectionResults.WFEInstances.Count -gt 0) {
-        $wfeInstance = $global:DetectionResults.WFEInstances[0]
-        if ($wfeInstance.DatabaseServer) {
-            try {
-                $connectionString = "Server=$($wfeInstance.DatabaseServer);Database=$($wfeInstance.DatabaseName);Integrated Security=true;Connection Timeout=30"
-                $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
-                $connection.Open()
-                $connection.Close()
-                Add-HealthCheckResult -Category "Database Connectivity" -Check "WFE PG Database Connection" -Status "PASS" -Message "Successfully connected to WFE/PG database: $($wfeInstance.DatabaseServer)"
-            }
-            catch {
-                Add-HealthCheckResult -Category "Database Connectivity" -Check "WFE PG Database Connection" -Status "FAIL" -Message "Failed to connect to WFE/PG database: $($wfeInstance.DatabaseServer). Error: $($_.Exception.Message)"
+        foreach ($wfeInstance in $global:DetectionResults.WFEInstances) {
+            if ($wfeInstance.DatabaseServer) {
+                try {
+                    $connectionString = "Server=$($wfeInstance.DatabaseServer);Database=$($wfeInstance.DatabaseName);Integrated Security=true;Connection Timeout=30"
+                    $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
+                    $connection.Open()
+                    $connection.Close()
+                    Add-HealthCheckResult -Category "Database Connectivity" -Check "WFE - PG Database Connection" -Status "PASS" -Message "Successfully connected to PG database: $($wfeInstance.DatabaseServer) - $($wfeInstance.DatabaseName)"
+                }
+                catch {
+                    Add-HealthCheckResult -Category "Database Connectivity" -Check "WFE - PG Database Connection" -Status "FAIL" -Message "Failed to connect to PG database: $($wfeInstance.DatabaseServer) - $($wfeInstance.DatabaseName). Error: $($_.Exception.Message)"
+                }
             }
         }
     }

@@ -41,6 +41,14 @@ function Start-SystemValidation {
         # Run ESS API health check validation (using the dedicated API module)
         Test-ESSAPIHealthCheckValidation
         
+        # Debug: Check final state of global results before summary calculation
+        Write-Verbose "Final check - Total results in global array: $($global:HealthCheckResults.Count)"
+        $finalFailResults = $global:HealthCheckResults | Where-Object { $_.Status -eq "FAIL" }
+        Write-Verbose "Final FAIL results count: $($finalFailResults.Count)"
+        foreach ($fail in $finalFailResults) {
+            Write-Verbose "Final FAIL result: $($fail.Category) - $($fail.Check) - $($fail.Message)"
+        }
+        
         # Get summary statistics
         $summary = Get-HealthCheckSummary
         $totalChecks = $summary.Total
@@ -128,6 +136,14 @@ function Test-ESSAPIHealthCheckValidation {
                 # Add API health check results to global results
                 Add-APIHealthCheckResults -HealthChecks $healthChecks
                 Write-Verbose "Successfully added $healthCheckCount ESS API health check results"
+                
+                # Debug: Check if FAIL results were added
+                $failResults = $global:HealthCheckResults | Where-Object { $_.Status -eq "FAIL" }
+                Write-Verbose "Total results after API health check: $($global:HealthCheckResults.Count)"
+                Write-Verbose "FAIL results found: $($failResults.Count)"
+                foreach ($fail in $failResults) {
+                    Write-Verbose "FAIL result: $($fail.Category) - $($fail.Check)"
+                }
             } else {
                 Add-HealthCheckResult -Category "ESS API Health Check" -Check "API Health Check" -Status "WARNING" -Message "No health check results returned from API"
             }
