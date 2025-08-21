@@ -140,3 +140,54 @@ function Get-InstanceAlias {
         return "Unknown"
     }
 } 
+
+function Show-SystemInfoSummary {
+    <#
+    .SYNOPSIS
+        Displays a concise summary of gathered system information
+    .DESCRIPTION
+        Shows system information with optional deployment details and disk space
+    .PARAMETER ShowDeploymentInfo
+        Whether to show ESS/WFE deployment information
+    .PARAMETER ShowDiskSpace
+        Whether to show disk space information
+    #>
+    [CmdletBinding()]
+    param (
+        [bool]$ShowDeploymentInfo = $false,
+        [bool]$ShowDiskSpace = $false
+    )
+
+    Write-Host "=== System Information Summary ===" -ForegroundColor Magenta
+
+    $sysInfo = $global:SystemInfo
+    
+    # Basic System Info
+    Write-Host "Computer Name: $($sysInfo.ComputerName)" -ForegroundColor White
+    Write-Host "Operating System: $($sysInfo.OS.Caption) $(if ($sysInfo.OS.IsServer) { '(Server)' } else { '(Client)' })" -ForegroundColor White
+    Write-Host "Total Memory: $($sysInfo.Hardware.TotalPhysicalMemory) GB" -ForegroundColor White
+    Write-Host "CPU Cores: $($sysInfo.Hardware.TotalCores)" -ForegroundColor White
+    Write-Host "IIS Installed: $(if ($sysInfo.IIS.IsInstalled) { 'Yes (v' + $sysInfo.IIS.Version + ')' } else { 'No' })" -ForegroundColor White
+    
+    # Optional: Show disk space for C: drive
+    if ($ShowDiskSpace) {
+        $cDrive = $sysInfo.Hardware.LogicalDisks | Where-Object { $_.DeviceID -eq 'C:' } | Select-Object -First 1
+        if ($cDrive) {
+            Write-Host "Available Disk Space (C:): $($cDrive.FreeSpace) GB" -ForegroundColor White
+        }
+    }
+    
+    # Optional: Show deployment information
+    if ($ShowDeploymentInfo -and $global:DetectionResults) {
+        Write-Host "ESS Installed: $(if ($global:DetectionResults.ESSInstances.Count -gt 0) { 'Yes' } else { 'No' })" -ForegroundColor White
+        Write-Host "WFE Installed: $(if ($global:DetectionResults.WFEInstances.Count -gt 0) { 'Yes' } else { 'No' })" -ForegroundColor White
+        Write-Host "Deployment Type: $($global:DetectionResults.DeploymentType)" -ForegroundColor White
+    } elseif ($ShowDeploymentInfo) {
+        Write-Host "ESS Installed: Unknown" -ForegroundColor White
+        Write-Host "WFE Installed: Unknown" -ForegroundColor White
+        Write-Host "Deployment Type: Unknown" -ForegroundColor White
+    }
+    
+    Write-Host "=================================" -ForegroundColor Magenta
+    Write-Host ""
+} 

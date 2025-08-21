@@ -69,7 +69,7 @@ function Start-InteractiveESSHealthChecks {
         $global:SystemInfo = $global:ESSConfig.SystemInfo
 
         # Display system information summary
-        Show-SystemInfoSummary
+        Show-SystemInfoSummary -ShowDiskSpace $true
 
         # Check IIS installation first
         $iisInstalled = Test-IISInstallation
@@ -220,29 +220,4 @@ function Start-ManualHealthChecks {
     }
 }
 
-function Show-SystemInfoSummary {
-    <#
-    .SYNOPSIS
-        Displays a concise summary of gathered system information
-    #>
-    [CmdletBinding()]
-    param ()
 
-    Write-Host "=== System Information Summary ===" -ForegroundColor Magenta
-
-    $sysInfo = $global:SystemInfo
-    
-    Write-Host "Computer Name: $($sysInfo.ComputerName)" -ForegroundColor White
-    Write-Host "Operating System: $($sysInfo.OS.Caption) $(if ($sysInfo.OS.IsServer) { '(Server)' } else { '(Client)' })" -ForegroundColor White
-    Write-Host "Total Memory: $($sysInfo.Hardware.TotalPhysicalMemory) GB" -ForegroundColor White
-    Write-Host "CPU Cores: $($sysInfo.Hardware.TotalCores)" -ForegroundColor White
-    Write-Host "IIS Installed: $(if ($sysInfo.IIS.IsInstalled) { 'Yes (v' + $sysInfo.IIS.Version + ')' } else { 'No' })" -ForegroundColor White
-    
-    # Show disk space for C: drive
-    $cDrive = $sysInfo.Hardware.LogicalDisks | Where-Object { $_.DeviceID -eq 'C:' } | Select-Object -First 1
-    if ($cDrive) {
-        Write-Host "Available Disk Space (C:): $($cDrive.FreeSpace) GB" -ForegroundColor White
-    }
-    
-    Write-Host ""
-}

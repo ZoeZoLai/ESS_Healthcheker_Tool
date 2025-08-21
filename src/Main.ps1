@@ -65,7 +65,7 @@ function Start-ESSHealthChecks {
         $global:SystemInfo = $global:ESSConfig.SystemInfo
 
         # Display system information summary
-        Show-SystemInfoSummary
+        Show-SystemInfoSummary -ShowDeploymentInfo $true
 
         # Run system validation checks
         Start-SystemValidation
@@ -87,35 +87,3 @@ function Start-ESSHealthChecks {
     }
 }
 
-function Show-SystemInfoSummary {
-    <#
-    .SYNOPSIS
-        Displays a concise summary of gathered system information
-    #>
-    [CmdletBinding()]
-    param ()
-
-    Write-Host "`n=== System Information Summary ===" -ForegroundColor Magenta
-
-    $sysInfo = $global:SystemInfo
-
-    # Basic System Info
-    Write-Host "Computer Name: $($sysInfo.ComputerName)" -ForegroundColor White
-    Write-Host "Operating System: $($sysInfo.OS.Caption) $(if ($sysInfo.OS.IsServer) { '(Server)' } else { '(Client)' })" -ForegroundColor White
-    Write-Host "Memory: $($sysInfo.Hardware.TotalPhysicalMemory) GB" -ForegroundColor White
-    Write-Host "CPU Cores: $($sysInfo.Hardware.TotalCores)" -ForegroundColor White
-    Write-Host "IIS Installed: $(if ($sysInfo.IIS.IsInstalled) { 'Yes' } else { 'No' })" -ForegroundColor White
-
-    # Deployment Info
-    if ($global:DetectionResults) {
-        Write-Host "ESS Installed: $(if ($global:DetectionResults.ESSInstances.Count -gt 0) { 'Yes' } else { 'No' })" -ForegroundColor White
-        Write-Host "WFE Installed: $(if ($global:DetectionResults.WFEInstances.Count -gt 0) { 'Yes' } else { 'No' })" -ForegroundColor White
-        Write-Host "Deployment Type: $($global:DetectionResults.DeploymentType)" -ForegroundColor White
-    } else {
-        Write-Host "ESS Installed: Unknown" -ForegroundColor White
-        Write-Host "WFE Installed: Unknown" -ForegroundColor White
-        Write-Host "Deployment Type: Unknown" -ForegroundColor White
-    }
-    
-    Write-Host "=================================" -ForegroundColor Magenta
-}
